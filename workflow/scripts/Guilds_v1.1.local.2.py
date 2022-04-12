@@ -62,6 +62,7 @@ Zewei Song
 2/14/2015
 songzewei@outlook.com
 '''
+
 from __future__ import print_function
 from __future__ import division
 #Import modules#################
@@ -97,19 +98,15 @@ otu_file = args.otu
 #    dialect = csv.Sniffer().sniff(f1.read())
 #    otu_delimiter = dialect.delimiter
 otu_delimiter = "\t"
-#print(otu_delimiter+"\n")
-
-#output files
-dot_position = [i for i in range(len(otu_file)) if otu_file.startswith('.', i)] #Get the position of . in the input filename
-
-if not dot_position: #the file does not have extension
-	matched_file = args.otu + '.guilds_matched.txt'
-	unnmatched_file = args.otu + '.guilds_unmatched.txt'
-	total_file = args.output
+if dot_position := [
+    i for i in range(len(otu_file)) if otu_file.startswith('.', i)
+]:
+	matched_file = f'{args.otu[:dot_position[-1]]}.guilds_matched.txt'
+	unmatched_file = f'{args.otu[:dot_position[-1]]}.guilds_unmatched.txt'
 else:
-	matched_file = args.otu[:dot_position[-1]] + '.guilds_matched.txt'
-	unmatched_file = args.otu[:dot_position[-1]] + '.guilds_unmatched.txt'
-	total_file = args.output
+	matched_file = f'{args.otu}.guilds_matched.txt'
+	unnmatched_file = f'{args.otu}.guilds_unmatched.txt'
+total_file = args.output
 ###########################################################################################
 
 # Import Function Database from GitHub, and get it ready.##################################
@@ -211,7 +208,7 @@ with open(otu_file, 'r') as otu:
 		replace_list = ['_', ' ', ';', ',', ':']
 		for symbol in replace_list:
 			otu_taxonomy = otu_taxonomy.replace(symbol, '@')
-		otu_taxonomy = otu_taxonomy + '@'
+		otu_taxonomy = f'{otu_taxonomy}@'
 		otu_current[index_tax] = otu_taxonomy
 		otu_tab.append(otu_current)
 	otu_tab = otu_tab[1:] # remove the header line
@@ -228,29 +225,29 @@ print("Searching the FUNGuild database...")
 
 #f_database = open(function_file, 'rU')
 for function_tax in f_database:
-    # report the progress
-    percent += 1
+	# report the progress
+	percent += 1
 
-    if percent in way_points:
-        progress = (int(round(percent/total_length*100.0)))
-        print('{}%'.format(progress))
-    else: t = 0
+	if percent in way_points:
+		progress = (int(round(percent/total_length*100.0)))
+		print(f'{progress}%')
+	else: t = 0
 
-    # Compare database with the OTU table
-    #function_tax = record.split('\t')
-    search_term = function_tax[0].replace(' ', '@') #first column of database, contains the name of the species
-    search_term = '@' + search_term + '@' #Add @ to the search term
+	# Compare database with the OTU table
+	#function_tax = record.split('\t')
+	search_term = function_tax[0].replace(' ', '@') #first column of database, contains the name of the species
+	search_term = f'@{search_term}@'
 
-    for otu in otu_tab:
-        otu_tax = otu[index_tax] # Get the taxonomy string of current OTU record.
-        if otu_tax.find(search_term) >= 0: #found the keyword in this OTU's taxonomy
-            count += 1 # Count the matching record
-            otu_new = otu[:]
+	for otu in otu_tab:
+	    otu_tax = otu[index_tax] # Get the taxonomy string of current OTU record.
+	    if otu_tax.find(search_term) >= 0: #found the keyword in this OTU's taxonomy
+	        count += 1 # Count the matching record
+	        otu_new = otu[:]
 
-            # Assign the matching functional information to current OTU record.
-            for item in function_tax:
-                otu_new.append(item)
-            otu_redundant.append(otu_new)
+	        # Assign the matching functional information to current OTU record.
+	        for item in function_tax:
+	            otu_new.append(item)
+	        otu_redundant.append(otu_new)
 
 # Finish searching, delete the temp function database file
 
@@ -294,27 +291,21 @@ for new_rec in unique_list:
 #Write to output files##############################################################################
 #Output matched OTUs to a new file
 if args.matched:
-    if os.path.isfile(matched_file) == True:
-        os.remove(matched_file)
-    output = open(matched_file,'a')
+	if os.path.isfile(matched_file) == True:
+	    os.remove(matched_file)
+	with open(matched_file,'a') as output:
 	#Write the matched list header
-    output.write('%s' % ('\t'.join(header))) #Header
-
+		output.write('%s' % ('\t'.join(header))) #Header
 	#Write the matched OTU table
-    for item in unique_list:
-        item[-1] = item[-1].encode('utf-8')
-        rec = '\t'.join([str(i) for i in item])
-        output.write('%s' % rec)
-    output.close()
-
+		for item in unique_list:
+			item[-1] = item[-1].encode('utf-8')
+			rec = '\t'.join([str(i) for i in item])
+			output.write(f'{rec}')
 #Output unmatched OTUs to a new file
 unmatched_list = []
 
 for rec in otu_tax:
-	count2 = 0
-	for new_rec in unique_list:
-		if rec[0] == new_rec[0]: #Check if the current record is in the unique_list (has been assigned a function)
-			count2 += 1
+	count2 = sum(rec[0] == new_rec[0] for new_rec in unique_list)
 	if count2 == 0:
 		unmatched_list.append(rec)
 
@@ -323,21 +314,19 @@ count_unmatched = 0
 #Add 'Unassigned' to the 'Notes' column
 for item in unmatched_list:
 	l = len(header) - len(item)
-	for i in range(l):
+	for _ in range(l):
 		item.extend('-')
 	item[index_notes] = 'Unassigned'
 
 if args.unmatched:
 	if os.path.isfile(unmatched_file) == True:
 		os.remove(unmatched_file)
-	output_unmatched = open(unmatched_file, 'a')
-	output_unmatched.write('%s' % ('\t'.join(header)))
-	for item in unmatched_list:
-		rec = '\t'.join(item)
-		output_unmatched.write('%s\n' % rec)
-		count_unmatched += 1
-	output_unmatched.close()
-
+	with open(unmatched_file, 'a') as output_unmatched:
+		output_unmatched.write('%s' % ('\t'.join(header)))
+		for item in unmatched_list:
+			rec = '\t'.join(item)
+			output_unmatched.write('%s\n' % rec)
+			count_unmatched += 1
 #Output the combined matched and unmatched OTUs to a new file
 if os.path.isfile(total_file) == True:
 	os.remove(total_file)
@@ -370,10 +359,10 @@ print("Result saved to '%s'" %(total_file))
 
 if args.matched or args.unmatched:
 	print('\nAdditional output:')
-	if args.matched:
-		print("FUNGuild made assignments on %i OTUs, these have been saved to %s." %(count, matched_file))
-	if args.unmatched:
-		print("%i OTUs were unassigned, these are saved to %s." %(count_unmatched, unmatched_file))
+if args.matched:
+	print("FUNGuild made assignments on %i OTUs, these have been saved to %s." %(count, matched_file))
+if args.unmatched:
+	print("%i OTUs were unassigned, these are saved to %s." %(count_unmatched, unmatched_file))
 
 # Finish the program
 stop = timeit.default_timer()
